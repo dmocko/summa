@@ -63,7 +63,11 @@ contains
  use time_utils_module,only:elapsedSec                       ! calculate the elapsed time
  USE mDecisions_module,only:mDecisions                       ! module to read model decisions
  USE ffile_info_module,only:ffile_info                       ! module to read information on forcing datafile
+#if ! (defined LIS_SUMMA_2_0 )
  USE read_attrb_module,only:read_attrb                       ! module to read local attributes
+#else
+ USE read_attrb_module,only:read_attrb_lis                       ! module to read local attributes
+#endif
  USE read_pinit_module,only:read_pinit                       ! module to read initial model parameter values
  USE paramCheck_module,only:paramCheck                       ! module to check consistency of model parameters
  USE pOverwrite_module,only:pOverwrite                       ! module to overwrite default parameter values with info from the Noah tables
@@ -93,6 +97,9 @@ contains
  ! Noah-MP parameters
  USE NOAHMP_VEG_PARAMETERS,only:SAIM,LAIM                    ! 2-d tables for stem area index and leaf area index (vegType,month)
  USE NOAHMP_VEG_PARAMETERS,only:HVT,HVB                      ! height at the top and bottom of vegetation (vegType)
+#if (defined LIS_SUMMA_2_0 )
+ USE globalData,only:data_step                                ! define data_step
+#endif
  ! ---------------------------------------------------------------------------------------
  ! * variables
  ! ---------------------------------------------------------------------------------------
@@ -140,8 +147,12 @@ contains
  ! *****************************************************************************
  ! *** read description of model forcing datafile used in each HRU
  ! *****************************************************************************
+#if ! (defined LIS_SUMMA_2_0 )
  call ffile_info(nGRU,err,cmessage)
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+#else
+ data_step = 3600.
+#endif
 
  ! *****************************************************************************
  ! *** read model decisions
@@ -168,7 +179,12 @@ contains
  attrFile = trim(SETNGS_PATH)//trim(LOCAL_ATTRIBUTES)
 
  ! read local attributes for each HRU
+#if ! (defined LIS_SUMMA_2_0 )
  call read_attrb(trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
+#else
+ !kluge: n hard-coded to 1
+ call read_attrb_LIS(1,trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
+#endif
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 
  ! *****************************************************************************
