@@ -18,6 +18,7 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#if ! ( defined LIS_SUMMA_2_0 )
 program test_lusolve
 ! Use modules
 USE nrtype
@@ -63,3 +64,4 @@ call dgesv(n,1,a,n,indx,bm,n,err); b = bm(1,1:3)
 write(*,'(a,1x,3(f9.3,1x),a)') 'lapack: b = ', b, '; should be (1,2,-1)'
 
 end program test_lusolve
+#endif
