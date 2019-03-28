@@ -18,6 +18,7 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#if ! ( defined LIS_SUMMA_2_0 )
 program summa_driver
 ! driver program for summa simulations
 ! *****************************************************************************
@@ -102,3 +103,4 @@ end do  ! looping through time
 ! successful end
 call stop_program(0, 'finished simulation successfully.')
 end program summa_driver
+#endif
