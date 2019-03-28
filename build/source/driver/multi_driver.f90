@@ -18,6 +18,7 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#if ! ( defined LIS_SUMMA_2_0 )
 program multi_driver
 ! used to evaluate different methods for simulating snow processes
 ! *****************************************************************************
@@ -1718,3 +1719,4 @@ SUBROUTINE SOIL_VEG_GEN_PARM(FILENAME_VEGTABLE, FILENAME_SOILTABLE, FILENAME_GEN
 !-----------------------------------------------------------------
 END SUBROUTINE SOIL_VEG_GEN_PARM
 !-----------------------------------------------------------------
+#endif
