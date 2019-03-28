@@ -177,9 +177,17 @@ contains
  elapsedWrite=0._dp
  elapsedPhysics=0._dp
 
+#if ! ( defined LIS_SUMMA_2_0 )
  ! get the command line arguments
  call getCommandArguments(summa1_struc,err,cmessage)
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+#else
+ startGRU = integerMissing; checkHRU = integerMissing
+ !nGRU = integerMissing; nHRU = integerMissing
+ !newOutputFile = noNewFiles
+ iRunMode = iRunModeFull
+ if (iRunMode==iRunModeFull) startGRU=1
+#endif
 
  ! set directories and files -- summaFileManager used as command-line argument
  call summa_SetDirsUndPhiles(summaFileManagerFile,err,cmessage)
