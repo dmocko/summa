@@ -24,6 +24,9 @@ implicit none
 private
 public::read_dimension
 public::read_attrb
+#if ( defined LIS_SUMMA_2_0 )
+public::read_attrb_lis
+#endif
 contains
 
  ! ************************************************************************************************
@@ -64,6 +67,7 @@ contains
  integer(i4b)                         :: hruDimId           ! variable id of HRU dimension from netcdf file
  character(len=256)                   :: cmessage           ! error message for downwind routine
 
+#if ! ( defined LIS_SUMMA_2_0 )
  ! Start procedure here
  err=0; message="read_dimension/"
 
@@ -84,6 +88,10 @@ contains
  ! get hru dimension of whole file
  err = nf90_inq_dimid(ncID,"hru",hruDimId);                   if(err/=nf90_noerr)then; message=trim(message)//'problem finding hru dimension/'//trim(nf90_strerror(err)); return; end if
  err = nf90_inquire_dimension(ncID, hruDimId, len = fileHRU); if(err/=nf90_noerr)then; message=trim(message)//'problem reading hru dimension/'//trim(nf90_strerror(err)); return; end if
+#else
+ fileGRU=nGRU
+ fileHRU=nHRU
+#endif
 
  ! get runtime GRU dimensions
  if     (present(startGRU)) then
@@ -107,6 +115,7 @@ contains
  allocate(gru_id(fileGRU))
  allocate(hru_ix(fileHRU),hru_id(fileHRU),hru2gru_id(fileHRU))
 
+#if ! ( defined LIS_SUMMA_2_0 )
  ! read gru_id from netcdf file
  err = nf90_inq_varid(ncID,"gruId",varID);     if (err/=0) then; message=trim(message)//'problem finding gruId'; return; end if
  err = nf90_get_var(ncID,varID,gru_id);        if (err/=0) then; message=trim(message)//'problem reading gruId'; return; end if
@@ -122,6 +131,7 @@ contains
  ! close netcdf file
  call nc_file_close(ncID,err,cmessage)
  if (err/=0) then; message=trim(message)//trim(cmessage); return; end if
+#endif
 
  ! array from 1 to total # of HRUs in attributes file
  hru_ix=arth(1,1,fileHRU)
@@ -150,6 +160,7 @@ else ! allocate space for anything except a single HRU run
  iHRU = 1
  do iGRU = 1,nGRU
 
+#if ! ( defined LIS_SUMMA_2_0 )
   if (count(hru2gru_Id == gru_id(iGRU+sGRU-1)) < 1) then; err=20; message=trim(message)//'problem finding HRUs belonging to GRU'; return; end if
   gru_struc(iGRU)%hruCount          = count(hru2gru_Id == gru_id(iGRU+sGRU-1))                 ! number of HRUs in each GRU
   gru_struc(iGRU)%gruId             = gru_id(iGRU+sGRU-1)                                      ! set gru id
@@ -158,6 +169,15 @@ else ! allocate space for anything except a single HRU run
   gru_struc(iGRU)%hruInfo(:)%hru_ix = arth(iHRU,1,gru_struc(iGRU)%hruCount)                    ! set index of hru in run domain
   gru_struc(iGRU)%hruInfo(:)%hru_id = hru_id(gru_struc(iGRU)%hruInfo(:)%hru_nc)                ! set id of hru
   iHRU = iHRU + gru_struc(iGRU)%hruCount
+#else
+  gru_struc(iGRU)%hruCount          = 1
+  gru_struc(iGRU)%gruId             = iGRU
+  allocate(gru_struc(iGRU)%hruInfo(gru_struc(iGRU)%hruCount))                                  ! allocate second level of gru to hru map
+  gru_struc(iGRU)%hruInfo(:)%hru_nc = iGRU
+  gru_struc(iGRU)%hruInfo(:)%hru_ix = iGRU
+  gru_struc(iGRU)%hruInfo(:)%hru_id = iGRU
+  iHRU = iHRU + gru_struc(iGRU)%hruCount
+#endif
  enddo ! iGRU = 1,nGRU
 
 end if ! not checkHRU
@@ -346,5 +366,279 @@ end subroutine read_dimension
  deallocate(checkAttr)
 
  end subroutine read_attrb
+
+#if ( defined LIS_SUMMA_2_0 )
+ subroutine read_attrb_LIS(n, attrFile,nGRU,attrStruct,typeStruct,err,message)
+ ! provide access to subroutines
+ USE LIS_coreMod
+ USE LIS_fileIOMod
+ USE netcdf
+ USE netcdf_util_module,only:nc_file_open                   ! open netcdf file
+ USE netcdf_util_module,only:nc_file_close                  ! close netcdf file
+ USE netcdf_util_module,only:netcdf_err                     ! netcdf error handling function
+ ! provide access to derived data types
+ USE data_types,only:gru_hru_int                            ! x%gru(:)%hru(:)%var(:)     (i4b)
+ USE data_types,only:gru_hru_double                         ! x%gru(:)%hru(:)%var(:)     (dp)
+ ! provide access to global data
+ USE globalData,only:gru_struc                              ! gru-hru mapping structure
+ USE globalData,only:attr_meta,type_meta                    ! metadata structures
+ USE get_ixname_module,only:get_ixAttr,get_ixType           ! access function to find index of elements in structure
+ implicit none
+
+ ! io vars
+ integer                              :: n
+ character(*)                         :: attrFile           ! input filename
+ integer(i4b),intent(in)              :: nGRU               ! number of grouped response units
+ type(gru_hru_double),intent(inout)   :: attrStruct         ! local attributes for each HRU
+ type(gru_hru_int),intent(inout)      :: typeStruct         ! local classification of soil veg etc. for each HRU
+ integer(i4b),intent(out)             :: err                ! error code
+ character(*),intent(out)             :: message            ! error message
+
+ ! define local variables
+ character(len=256)                   :: cmessage           ! error message for downwind routine
+ integer(i4b)                         :: iVar               ! loop through varibles in the netcdf file
+ integer(i4b)                         :: iHRU               ! index of an HRU within a GRU
+ integer(i4b)                         :: iGRU               ! index of an GRU
+ integer(i4b)                         :: varType            ! type of variable (categorical or numerical)
+ integer(i4b)                         :: varIndx            ! index of variable within its data structure
+
+ ! check structures
+ integer(i4b)                         :: iCheck             ! index of an attribute name
+ logical(lgt),allocatable             :: checkType(:)       ! vector to check if we have all desired categorical values
+ logical(lgt),allocatable             :: checkAttr(:)       ! vector to check if we have all desired local attributes
+
+ ! netcdf variables
+ integer(i4b)                         :: ncID               ! netcdf file id
+ character(LEN=nf90_max_name)         :: varName            ! character array of netcdf variable name
+ integer(i4b)                         :: nVar               ! number of variables in netcdf local attribute file
+ integer(i4b),parameter               :: categorical=101    ! named variable to denote categorical data
+ integer(i4b),parameter               :: numerical=102      ! named variable to denote numerical data
+ integer(i4b)                         :: categorical_var(1) ! temporary categorical variable from local attributes netcdf file
+ real(dp)                             :: numeric_var(1)     ! temporary numeric variable from local attributes netcdf file
+ integer(i4b)                         :: col,row,t
+ real(dp)                             :: var2d(LIS_rc%lnc(n),LIS_rc%lnr(n))
+ real(dp)                             :: var1d(LIS_rc%ntiles(n))
+ real                                 :: var2d_tmp(LIS_rc%lnc(n),LIS_rc%lnr(n))
+ integer(i4b)                         :: varID              ! NetCDF variable ID
+ integer(i4b),allocatable             :: hru_id(:)
+ ! define mapping variables
+
+ ! Start procedure here
+ err=0; message="read_attrb/"
+
+ call nc_file_open(trim(attrFile),nf90_noWrite,ncID,err,cmessage)
+ if(err/=0)then; message=trim(message)//trim(cmessage); return; end if
+ allocate(hru_id(nGRU))
+ ! read hru_id from netcdf file
+ err = nf90_inq_varid(ncID,"hruId",varID);     if (err/=0) then; message=trim(message)//'problem finding hruId'; return; end if
+ err = nf90_get_var(ncID,varID,hru_id);        if (err/=0) then; message=trim(message)//'problem reading hruId'; return; end if
+ varIndx = get_ixType("hruId")
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = hru_id(iGRU) ! iGRU
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'hruid: ', hru_id(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+ deallocate(hru_id)
+ call nc_file_close(ncID,err,cmessage)
+ if (err/=0)then; message=trim(message)//trim(cmessage); return; end if
+
+ varIndx = get_ixType("vegTypeIndex")
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = &
+            LIS_domain(n)%tile(iGRU)%vegt
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'vegt: ', LIS_domain(n)%tile(iGRU)%vegt
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixType("soilTypeIndex")
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = &
+            LIS_domain(n)%tile(iGRU)%soilt
+!<debug -- kluge>
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = 6
+!</debug -- kluge>
+    end do
+ end do
+
+ varIndx = get_ixType("slopeTypeIndex")
+ call LIS_read_param(n,"SLOPETYPE",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = &
+            var1d(iGRU)
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'slopetype: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixType("downHRUindex")
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = 0
+    end do
+ end do
+
+ varIndx = get_ixAttr('latitude')
+ call LIS_read_param(n,"lat",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =&
+            var1d(iGRU)
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'lat: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixAttr('longitude')
+ call LIS_read_param(n,"lon",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =&
+            var1d(iGRU)
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'lon: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixAttr('elevation')
+ call LIS_read_param(n,"ELEVATION",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =&
+            var1d(iGRU)
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'elevation: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixAttr('tan_slope')
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =0.1
+    end do
+ end do
+
+ varIndx = get_ixAttr('contourLength')
+ call LIS_read_param(n,"HYMAP_river_length",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =&
+            var1d(iGRU)
+!<debug -- kluge>
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = 1
+!</debug -- kluge>
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'contourl: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixAttr('HRUarea')
+ call LIS_read_param(n,"HYMAP_grid_area",var2d_tmp)
+ var2d = var2d_tmp
+
+ do t=1,LIS_rc%ntiles(n)
+    col = LIS_domain(n)%tile(t)%col
+    row = LIS_domain(n)%tile(t)%row
+    if(LIS_domain(n)%gindex(col,row).ne.-1) then
+       var1d(t) = var2d(col,row)
+    endif
+ enddo
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) =&
+            var1d(iGRU)
+!<debug -- jim testing>
+write(unit=666,fmt=*) 'hruarea: ', var1d(iGRU)
+!</debug -- jim testing>
+    end do
+ end do
+
+ varIndx = get_ixAttr('mHeight')
+
+ ! get data from netcdf file and store in vector
+ do iGRU=1,nGRU
+    do iHRU = 1, gru_struc(iGRU)%hruCount
+       attrStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = 3 ! 10
+    end do
+ end do
+
+ end subroutine read_attrb_LIS
+#endif
 
 end module read_attrb_module
