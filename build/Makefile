@@ -81,13 +81,16 @@ ifeq "$(isOpenMP)" "yes"
  FLAGS_OMP = -qopenmp
 endif
 
-FLAGS_NOAH = -O3 -autodouble -noerror_limit -FR -auto -fltconsistency $(FLAGS_OMP)
-FLAGS_COMM = -O3 -FR -auto -fltconsistency -fpe0 $(FLAGS_OMP)
-FLAGS_SUMMA = -O3 -FR -auto -fltconsistency -fpe0 $(FLAGS_OMP)
+#FLAGS_NOAH = -O3 -autodouble -noerror_limit -FR -auto -fltconsistency $(FLAGS_OMP)
+#FLAGS_COMM = -O3 -FR -auto -fltconsistency -fpe0 $(FLAGS_OMP)
+#FLAGS_SUMMA = -O3 -FR -auto -fltconsistency -fpe0 $(FLAGS_OMP)
 
 #FLAGS_NOAH = -O0 -p -g -warn nounused -autodouble -noerror_limit -FR -auto -WB -traceback -fltconsistency
 #FLAGS_COMM = -O0 -p -g -debug -warn all -check all -FR -auto -WB -traceback -fltconsistency -fpe0
 #FLAGS_SUMMA = -O0 -p -g -debug -warn all -check all -FR -auto -WB -traceback -fltconsistency -fpe0
+FLAGS_NOAH = -O0 -g -autodouble -noerror_limit -FR -auto -WB -traceback
+FLAGS_COMM = -O0 -g -FR -auto -WB -traceback -fpe0
+FLAGS_SUMMA = -O0 -g -FR -auto -WB -traceback -fpe0
 endif
 
 # pgi
@@ -151,6 +154,21 @@ LAPK_PATH = /glade/u/apps/opt/intel/2017u1/compilers_and_libraries/linux/mkl/lib
 # define the lapack libraries
 #LIBLAPACK = -L$(LAPK_PATH)/lib -llapack
 LIBLAPACK = $(NCAR_LIBS_MKL)
+
+endif
+
+# Intel fortran compiler
+ifeq "$(FC_ENV)" "ifort-discover"
+
+ifeq "$(isOpenMP)" "yes"
+ LIBOPENMP = -liomp5
+endif
+
+NCDF_PATH = $(LIS_NETCDF)
+LAPK_PATH = $(LIS_LAPACK)
+
+# define the lapack libraries
+LIBLAPACK = -L$(LAPK_PATH)/lib -llapack -lblas
 
 endif
 
@@ -421,7 +439,8 @@ compile_summa: update_version
 
 # link routines
 link:
-	$(FC_EXE) -pg -g *.o $(LIBNETCDF) $(LIBLAPACK) -o $(DRIVER__EX)
+	#$(FC_EXE) -pg -g *.o $(LIBNETCDF) $(LIBLAPACK) -o $(DRIVER__EX)
+	$(FC_EXE) -g *.o $(LIBNETCDF) $(LIBLAPACK) -o $(DRIVER__EX)
 
 # Remove object files
 clean:
