@@ -46,7 +46,7 @@ contains
  USE nrtype                                                     ! variable types, etc.
  USE summa_type, only:summa1_type_dec                           ! master summa data type
  ! subroutines and functions
- USE nr_utility_module,only:indexx                              ! sort vectors in ascending order
+ USE nr_utility_module,only:indexx,arth                         ! sort vectors in ascending order
  USE vegPhenlgy_module,only:vegPhenlgy                          ! module to compute vegetation phenology
  USE run_oneGRU_module,only:run_oneGRU                          ! module to run for one GRU
  USE time_utils_module,only:elapsedSec                          ! calculate the elapsed time
@@ -180,6 +180,10 @@ contains
  ! get the indices that can rank the computational expense
  call indexx(timeGRU, ixExpense) ! ranking of each GRU w.r.t. computational expense
  ixExpense=ixExpense(nGRU:1:-1)  ! reverse ranking: now largest to smallest
+
+ ! Added for debug
+ ixExpense = arth(1,1,nGRU)
+!write(*,*)'Inside summa_modelRun.f90, ixExpense=',ixExpense
 
  ! initialize the GRU count
  ! NOTE: this needs to be outside the parallel section so it is not reinitialized by different threads
