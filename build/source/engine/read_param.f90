@@ -42,6 +42,9 @@ USE data_types,only:gru_hru_doubleVec      ! spatial double data type:  x%gru(:)
 implicit none
 private
 public::read_param
+#if ( defined LIS_SUMMA_2_0 )
+public::read_param_lis
+#endif
 contains
 
 
@@ -180,8 +183,10 @@ contains
    ! check HRUs  -- expect HRUs to be in the same order as the local attributes
    if (iRunMode==iRunModeFull) then
     do iHRU=1,nHRU
+
      iGRU=index_map(iHRU)%gru_ix
      localHRU=index_map(iHRU)%localHRU
+
      if((hruId(iHRU)>0).and.(hruId(iHRU)/=typeStruct%gru(iGRU)%hru(localHRU)%var(iLookTYPE%hruId)))then
       write(message,'(a,i0,a,i0,a)') trim(message)//'mismatch for HRU ', typeStruct%gru(iGRU)%hru(localHRU)%var(iLookTYPE%hruId), '(param HRU = ', hruId(iHRU), ')'
       err=20; return
@@ -355,5 +360,253 @@ contains
  end do ! (looping through the parameters in the NetCDF file)
 
  end subroutine read_param
+
+ ! ************************************************************************************************
+ ! Added by Zhuo Wang on 09/05/2019 for reading in 2-D SUMMA input parameters 
+ ! public subroutine read_param_lis: read trial model parameter values
+ ! ************************************************************************************************
+#if ( defined LIS_SUMMA_2_0 )
+ subroutine read_param_lis(n,iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,message)
+ ! provide access to subroutines
+
+ ! missing values
+ USE globalData,only:integerMissing  ! missing integer
+ USE globalData,only:realMissing     ! missing real number
+  
+ ! runtime options
+ USE globalData,only:iRunModeFull,iRunModeGRU,iRunModeHRU ! run modes
+
+ USE nrtype
+ USE LIS_coreMod
+ USE LIS_fileIOMod
+ USE netcdf
+ USE netcdf_util_module,only:nc_file_open      ! open netcdf file
+ USE netcdf_util_module,only:nc_file_close     ! close netcdf file
+ USE netcdf_util_module,only:netcdf_err        ! netcdf error handling function
+
+ ! provide access to derived data types
+ USE data_types,only:gru_double                ! x%gru(:)%var(:)
+ USE data_types,only:gru_hru_int               ! x%gru(:)%hru(:)%var(:)     (i4b)
+ USE data_types,only:gru_hru_double            ! x%gru(:)%hru(:)%var(:)     (dp)
+ USE data_types,only:gru_hru_doubleVec         ! x%gru(:)%hru(:)%var(:)%dat(:)
+
+ ! used to read model initial conditions 
+ USE summaFileManager,only:SETNGS_PATH               ! path for metadata files
+ USE summaFileManager,only:PARAMETER_TRIAL           ! file with parameter trial values
+ USE get_ixname_module,only:get_ixparam,get_ixbpar,get_ixType   ! access function to find index of elements in structure
+ USE globalData,only:index_map,gru_struc             ! mapping from global HRUs to the elements in the data structures
+ USE var_lookup,only:iLookPARAM,iLookTYPE            ! named variables to index elements of the data vectors
+ implicit none
+
+ ! define input
+ integer                               :: n
+ integer(i4b),        intent(in)       :: iRunMode         ! run mode
+ integer(i4b),        intent(in)       :: checkHRU         ! index of single HRU if runMode = checkHRU
+ integer(i4b),        intent(in)       :: startGRU         ! index of single GRU if runMode = startGRU
+ integer(i4b),        intent(in)       :: nHRU             ! number of global HRUs
+ integer(i4b),        intent(in)       :: nGRU             ! number of global GRUs
+ type(gru_hru_int),   intent(in)       :: typeStruct       ! local classification of soil veg etc. for each HRU
+
+ ! define output
+ type(gru_hru_doubleVec),intent(inout) :: mparStruct       ! model parameters
+ type(gru_double)    ,intent(inout)    :: bparStruct       ! basin parameters
+ integer(i4b),        intent(out)      :: err              ! error code
+ character(*),        intent(out)      :: message          ! error message
+
+ ! define local variables
+ character(len=1024)                   :: cmessage         ! error message for downwind routine
+ character(LEN=1024)                   :: infile           ! input filename
+ integer(i4b)                          :: iHRU             ! index of HRU within data vector
+ integer(i4b)                          :: localHRU,iGRU    ! index of HRU and GRU within data structure
+ integer(i4b)                          :: ixParam          ! index of the model parameter in the data structure
+
+ integer(i4b)                          :: varIndx          ! index of variable within its data structure
+
+ ! indices/metadata in the NetCDF file
+ integer(i4b)                          :: ncid             ! netcdf id
+ integer(i4b)                          :: nDims            ! number of dimensions
+ integer(i4b)                          :: nVars            ! number of variables
+ integer(i4b)                          :: idimid           ! dimension index
+ integer(i4b)                          :: ivarid           ! variable index
+ character(LEN=64)                     :: dimName          ! dimension name
+ character(LEN=64)                     :: parName          ! parameter name
+ integer(i4b)                          :: dimLength        ! dimension length
+ integer(i4b)                          :: nHRU_file        ! number of HRUs in the parafile
+ integer(i4b)                          :: nGRU_file        ! number of GRUs in the parafile
+ integer(i4b)                          :: nSoil_file       ! number of soil layers in the file
+ integer(i4b)                          :: idim_list(2)     ! list of dimension ids
+
+ ! data in the netcdf file
+ integer(i4b)                          :: parLength        ! length of the parameter data
+ integer(i4b),allocatable              :: hruId(:)         ! HRU identifier in the file
+ real(dp),allocatable                  :: parVector(:)     ! model parameter vector
+ logical                               :: fexist           ! inquire whether the parmTrial file exists
+ integer(i4b)                          :: fHRU             ! index of HRU in input file
+
+ integer(i4b)                          :: col,row,t
+ real(dp)                              :: var2d(LIS_rc%lnc(n),LIS_rc%lnr(n))
+ real(dp)                              :: var1d(LIS_rc%ntiles(n))
+ real                                  :: var2d_tmp(LIS_rc%lnc(n),LIS_rc%lnr(n))
+ integer(i4b)                          :: varID            ! NetCDF variable ID
+ integer(i4b),allocatable              :: hru_id(:)
+
+ ! Start procedure here
+ err=0; message="read_param_lis/"
+
+ ! **********************************************************************************************
+ ! * read the HRU index
+ ! **********************************************************************************************
+
+ ! build filename
+ infile = trim(SETNGS_PATH)//trim(PARAMETER_TRIAL)
+
+ ! open file
+ call nc_file_open(trim(infile),nf90_nowrite,ncid,err,cmessage)
+  
+ ! get the number of variables in the parameter file
+ err=nf90_inquire(ncid, nDimensions=nDims, nVariables=nVars)
+
+! ! close netcdf file
+! call nc_file_close(ncid,err,cmessage)
+
+ ! allocate hruID vector
+ nHRU_file = 76088
+ allocate(hruId(nHRU_file))
+
+ ! **********************************************************************************************
+ ! * read the HRU index
+ ! **********************************************************************************************
+ 
+ ! loop through the parameters in the NetCDF file
+ do ivarid=1,nVars
+ ! special case of the HRU id
+ err=nf90_inquire_variable(ncid, ivarid, name=parName)
+ if(trim(parName)=='hruIndex' .or. trim(parName)=='hruId')then
+
+   ! Read HRUs
+   varIndx = get_ixType("hruId")
+   call LIS_read_param(n,"hruId",var2d_tmp)
+   var2d = var2d_tmp
+    
+   do t=1,LIS_rc%ntiles(n)
+      col = LIS_domain(n)%tile(t)%col
+      row = LIS_domain(n)%tile(t)%row
+      if(LIS_domain(n)%gindex(col,row).ne.-1) then
+         var1d(t) = var2d(col,row)
+      endif
+   enddo
+   
+   ! get data from netcdf file and store in vector
+   do iGRU=1,nGRU
+     hruId(iGRU) = var1d(iGRU)
+   end do
+
+   endif   ! if the hruId
+  end do  ! looping through variables in the file
+
+ ! **********************************************************************************************
+ ! * read the local parameters and the basin parameters 
+ ! **********************************************************************************************
+ ! loop through the parameters in the NetCDF file
+
+ do ivarid=1,nVars
+
+  ! get the parameter name
+  err=nf90_inquire_variable(ncid, ivarid, name=parName)
+
+  ! get the local parameters
+   ixParam = get_ixparam( trim(parName) )
+   if(ixParam/=integerMissing)then
+
+  ! **********************************************************************************************
+  ! * read the local parameters
+  ! **********************************************************************************************
+
+  ! get the variable shape
+  err=nf90_inquire_variable(ncid, ivarid, nDims=nDims, dimids=idim_list)
+
+  ! get the length of the depth dimension (if it exists)
+  ! 3-D: nlat, nlon, depth
+  if(nDims==2)then
+
+    ! get the information on the 2nd dimension for 2-d variables
+    err=nf90_inquire_dimension(ncid, idim_list(2), dimName, nSoil_file)
+
+    ! define parameter length
+    parLength = nSoil_file
+  else
+    parLength = 1
+  endif  ! if two dimensions
+!------------------------------------------------------------------------------------------
+  ! allocate space for model parameters
+
+   call LIS_read_param(n,parName,var2d_tmp)
+   var2d = var2d_tmp
+    
+   do t=1,LIS_rc%ntiles(n)
+      col = LIS_domain(n)%tile(t)%col
+      row = LIS_domain(n)%tile(t)%row
+      if(LIS_domain(n)%gindex(col,row).ne.-1) then
+         var1d(t) = var2d(col,row)
+      endif
+   enddo
+
+    do iHRU=1,nHRU
+     ! map to the GRUs and HRUs
+     iGRU=index_map(iHRU)%gru_ix
+     localHRU=index_map(iHRU)%localHRU
+     fHRU = gru_struc(iGRU)%hruInfo(localHRU)%hru_nc
+
+     mparStruct%gru(iGRU)%hru(localHRU)%var(ixParam)%dat(:) = var1d(iHRU)
+
+    end do  ! looping through HRUs
+
+! **********************************************************************************************
+! * read the basin parameters
+! **********************************************************************************************
+
+ ! get the basin parameters
+  else
+
+   ! get the parameter index
+   ixParam = get_ixbpar( trim(parName) )
+   
+   ! allow extra variables in the file that are not used
+   if(ixParam==integerMissing) cycle
+
+   call LIS_read_param(n,parName,var2d_tmp)
+   var2d = var2d_tmp
+    
+   do t=1,LIS_rc%ntiles(n)
+      col = LIS_domain(n)%tile(t)%col
+      row = LIS_domain(n)%tile(t)%row
+      if(LIS_domain(n)%gindex(col,row).ne.-1) then
+         var1d(t) = var2d(col,row)
+      endif
+   enddo
+
+   ! populate parameter structures
+   if (iRunMode==iRunModeGRU) then
+      do iGRU=1,nGRU
+        bparStruct%gru(iGRU)%var(ixParam) = var1d(iGRU+startGRU-1)
+      end do  ! looping through GRUs
+
+   else if (iRunMode==iRunModeFull) then
+      do iGRU=1,nGRU
+         bparStruct%gru(iGRU)%var(ixParam) = var1d(iGRU)
+      end do  ! looping through GRUs
+
+    else if (iRunMode==iRunModeHRU) then
+         err = 20; message='checkHRU run mode not working'; return;
+    endif
+   
+ endif    ! reading the basin parameters
+end do  ! looping through variables in the file
+
+! close netcdf file
+ call nc_file_close(ncid,err,cmessage)
+
+ end subroutine read_param_lis 
+#endif
 
 end module read_param_module

@@ -65,13 +65,16 @@ contains
  USE ffile_info_module,only:ffile_info                       ! module to read information on forcing datafile
 #if ! (defined LIS_SUMMA_2_0 )
  USE read_attrb_module,only:read_attrb                       ! module to read local attributes
+ USE read_param_module,only:read_param                       ! module to read model parameter sets
 #else
- USE read_attrb_module,only:read_attrb_lis                       ! module to read local attributes
+ USE read_attrb_module,only:read_attrb_lis                   ! module to read local attributes
+ USE read_param_module,only:read_param_lis
 #endif
  USE read_pinit_module,only:read_pinit                       ! module to read initial model parameter values
  USE paramCheck_module,only:paramCheck                       ! module to check consistency of model parameters
  USE pOverwrite_module,only:pOverwrite                       ! module to overwrite default parameter values with info from the Noah tables
- USE read_param_module,only:read_param                       ! module to read model parameter sets
+
+!USE read_param_module,only:read_param                       ! module to read model parameter sets
  USE ConvE2Temp_module,only:E2T_lookup                       ! module to calculate a look-up table for the temperature-enthalpy conversion
  USE var_derive_module,only:fracFuture                       ! module to calculate the fraction of runoff in future time steps (time delay histogram)
  USE module_sf_noahmplsm,only:read_mp_veg_parameters         ! module to read NOAH vegetation tables
@@ -183,7 +186,7 @@ contains
  call read_attrb(trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
 #else
  !kluge: n hard-coded to 1
- call read_attrb_LIS(1,trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
+ call read_attrb_lis(1,trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
 #endif
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 
@@ -259,7 +262,16 @@ contains
  ! *****************************************************************************
  ! *** read trial model parameter values for each HRU, and populate initial data structures
  ! *****************************************************************************
- call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
+
+
+! Zhuo Wang added on 09/05/2019
+#if ! (defined LIS_SUMMA_2_0 )
+  call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
+#else
+  call read_param_lis(1,iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
+#endif
+
+!call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 
  ! *****************************************************************************
