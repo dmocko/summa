@@ -76,7 +76,11 @@ contains
  if (err/=0) then; message=trim(message)//trim(cmessage); return; end if
 
  ! get number of HRUs in file
+#if ( ! defined LIS_SUMMA_2_0 )
  err = nf90_inq_dimid(ncID,"hru",dimId);               if(err/=nf90_noerr)then; message=trim(message)//'problem finding hru dimension/'//trim(nf90_strerror(err)); return; end if
+#else
+ err = nf90_inq_dimid(ncID,"ntiles",dimId);               if(err/=nf90_noerr)then; message=trim(message)//'problem finding hru dimension/'//trim(nf90_strerror(err)); return; end if
+#endif
  err = nf90_inquire_dimension(ncID,dimId,len=fileHRU); if(err/=nf90_noerr)then; message=trim(message)//'problem reading hru dimension/'//trim(nf90_strerror(err)); return; end if
 
  ! allocate sotrage for reading from file
@@ -182,9 +186,15 @@ contains
  integer(i4b),parameter                 :: nBand=2      ! number of spectral bands
 
  character(len=32),parameter            :: scalDimName   ='scalarv'  ! dimension name for scalar data
+#if ( ! defined LIS_SUMMA_2_0 )
  character(len=32),parameter            :: midSoilDimName='midSoil'  ! dimension name for soil-only layers
  character(len=32),parameter            :: midTotoDimName='midToto'  ! dimension name for layered varaiables
  character(len=32),parameter            :: ifcTotoDimName='ifcToto'  ! dimension name for layered varaiables
+#else
+ character(len=32),parameter            :: midSoilDimName='dim2'  ! dimension name for soil-only layers
+ character(len=32),parameter            :: midTotoDimName='dim3'  ! dimension name for layered varaiables
+ character(len=32),parameter            :: ifcTotoDimName='dim5'  ! dimension name for layered varaiables
+#endif
 
  ! --------------------------------------------------------------------------------------------------------
 
@@ -199,7 +209,11 @@ contains
  if (err/=0) then; message=trim(message)//trim(cmessage); return; end if
 
  ! get number of HRUs in file
+#if ( ! defined LIS_SUMMA_2_0 )
  err = nf90_inq_dimid(ncID,"hru",dimID);               if(err/=nf90_noerr)then; message=trim(message)//'problem finding hru dimension/'//trim(nf90_strerror(err)); return; end if
+#else
+ err = nf90_inq_dimid(ncID,"ntiles",dimID);               if(err/=nf90_noerr)then; message=trim(message)//'problem finding hru dimension/'//trim(nf90_strerror(err)); return; end if
+#endif
  err = nf90_inquire_dimension(ncID,dimID,len=fileHRU); if(err/=nf90_noerr)then; message=trim(message)//'problem reading hru dimension/'//trim(nf90_strerror(err)); return; end if
 
  ! loop through prognostic variables

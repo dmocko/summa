@@ -94,6 +94,8 @@ contains
  USE globalData,only:gru_struc                               ! gru-hru mapping structures
  USE globalData,only:structInfo                              ! information on the data structures
  USE globalData,only:output_fileSuffix                       ! suffix for the output file
+
+ USE LIS_coreMod,only:LIS_rc, LIS_config
  ! ---------------------------------------------------------------------------------------
  ! * variables
  ! ---------------------------------------------------------------------------------------
@@ -213,7 +215,9 @@ contains
  ! *** read the number of snow and soil layers
  ! *****************************************************************************
  ! obtain the number of snow and soil layers from the initial conditions file
- restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
+!  Modified by Zhuo Wang for restart run mode
+ !restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
+ restartFile = trim(summa1_struc%rfile)
  call read_icond_nlayers(trim(restartFile),nGRU,indx_meta,err,cmessage)
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 

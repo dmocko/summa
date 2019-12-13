@@ -96,6 +96,11 @@ type, public :: summa1_type_dec
     real(dp),dimension(12)           :: greenVegFrac_monthly       ! fraction of green vegetation in each month (0-1)
     character(len=256)               :: summaFileManagerFile       ! path/name of file defining directories and files
 
+    ! Added by Zhuo Wang on 11/13/2019 for reading the parameters from lis.config 
+    real                             :: rstInterval
+    character*256                    :: rformat
+    character*256                    :: rfile
+
 end type summa1_type_dec
 
 END MODULE summa_type
