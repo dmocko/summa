@@ -129,7 +129,8 @@ contains
  real(dp)                        :: fracLiq             ! fraction of liquid water (-)
  integer(i4b),parameter          :: ixVisible=1         ! named variable to define index in array of visible part of the spectrum
  integer(i4b),parameter          :: ixNearIR=2          ! named variable to define index in array of near IR part of the spectrum
- real(dp),parameter              :: verySmall=1.e-10_dp ! a very small number (used for error checking)
+!real(dp),parameter              :: verySmall=1.e-10_dp ! a very small number (used for error checking)
+ real(dp),parameter              :: verySmall=1.e-6_dp  ! Revised for longer restart run
  ! --------------------------------------------------------------------------------------------------------
  ! initialize error control
  err=0; message="layerDivide/"
