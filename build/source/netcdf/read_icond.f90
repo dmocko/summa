@@ -547,7 +547,7 @@ contains
 ! --------------------------------------------------------------------------------------------------------
 ! modules
  USE nrtype
- USE var_lookup,only:iLookType
+ USE var_lookup,only:iLookID
  USE var_lookup,only:iLookVarType                       ! variable lookup structure
  USE var_lookup,only:iLookPROG                          ! variable lookup structure
  USE var_lookup,only:iLookPARAM                         ! variable lookup structure
@@ -668,7 +668,7 @@ contains
   tmpint_1d=0
   call LIS_readvar_restart(ftn, n, LIS_rc%lsm_index, tmpint_1d, &
                            varname="hruId", wformat=wformat)
-  typeData%gru(:)%hru(1)%var(iLookTYPE%hruId) = tmpint_1d
+  typeData%gru(:)%hru(1)%var(iLookID%hruId) = tmpint_1d
   hruIdData = tmpint_1d
 
   tmptilen_1d=0

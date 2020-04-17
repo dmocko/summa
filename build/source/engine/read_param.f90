@@ -559,7 +559,7 @@ contains
     do iHRU=1,nHRU
      ! map to the GRUs and HRUs
      iGRU=index_map(iHRU)%gru_ix
-     localHRU=index_map(iHRU)%localHRU
+     localHRU=index_map(iHRU)%localHRU_ix
      fHRU = gru_struc(iGRU)%hruInfo(localHRU)%hru_nc
      mparStruct%gru(iGRU)%hru(localHRU)%var(varIndx)%dat(:) = var1d(fHRU)
     end do  ! looping through HRUs
