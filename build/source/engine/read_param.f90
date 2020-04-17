@@ -498,7 +498,9 @@ contains
    
    ! get data from netcdf file and store in vector
    do iGRU=1,nGRU
-     hruId(iGRU) = var1d(iGRU)
+    do iHRU = 1,gru_struc(iGRU)%hruCount
+      hruId(iGRU) = var1d(iGRU)
+    enddo
    end do
 
    endif   ! if the hruId
@@ -515,8 +517,11 @@ contains
   err=nf90_inquire_variable(ncid, ivarid, name=parName)
 
   ! get the local parameters
-   ixParam = get_ixparam( trim(parName) )
-   if(ixParam/=integerMissing)then
+!  ixParam = get_ixparam( trim(parName) )
+!  if(ixParam/=integerMissing)then
+
+   varIndx = get_ixparam(trim(parName))
+   if(varIndx /= integerMissing) then
 
   ! **********************************************************************************************
   ! * read the local parameters
@@ -539,6 +544,7 @@ contains
   endif  ! if two dimensions
 !------------------------------------------------------------------------------------------
   ! allocate space for model parameters
+  allocate(parVector(parLength))
 
    call LIS_read_param(n,parName,var2d_tmp)
    var2d = var2d_tmp
@@ -556,10 +562,11 @@ contains
      iGRU=index_map(iHRU)%gru_ix
      localHRU=index_map(iHRU)%localHRU
      fHRU = gru_struc(iGRU)%hruInfo(localHRU)%hru_nc
-
-     mparStruct%gru(iGRU)%hru(localHRU)%var(ixParam)%dat(:) = var1d(iHRU)
-
+     mparStruct%gru(iGRU)%hru(localHRU)%var(varIndx)%dat(:) = var1d(fHRU)
     end do  ! looping through HRUs
+
+    ! deallocate space for model parameters
+    deallocate(parVector)
 
 ! **********************************************************************************************
 ! * read the basin parameters
@@ -569,10 +576,10 @@ contains
   else
 
    ! get the parameter index
-   ixParam = get_ixbpar( trim(parName) )
+   varIndx = get_ixbpar(trim(parName))
    
    ! allow extra variables in the file that are not used
-   if(ixParam==integerMissing) cycle
+   if(varIndx == integerMissing) cycle
 
    call LIS_read_param(n,parName,var2d_tmp)
    var2d = var2d_tmp
@@ -586,14 +593,18 @@ contains
    enddo
 
    ! populate parameter structures
-   if (iRunMode==iRunModeGRU) then
+
+   bparStruct%gru(:)%var(varIndx) = var1d(:)
+
+
+   if (iRunMode == iRunModeGRU) then
       do iGRU=1,nGRU
-        bparStruct%gru(iGRU)%var(ixParam) = var1d(iGRU+startGRU-1)
+        bparStruct%gru(iGRU)%var(varIndx) = var1d(iGRU+startGRU-1)
       end do  ! looping through GRUs
 
    else if (iRunMode==iRunModeFull) then
       do iGRU=1,nGRU
-         bparStruct%gru(iGRU)%var(ixParam) = var1d(iGRU)
+         bparStruct%gru(iGRU)%var(varIndx) = var1d(iGRU)
       end do  ! looping through GRUs
 
     else if (iRunMode==iRunModeHRU) then
