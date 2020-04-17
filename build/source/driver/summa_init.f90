@@ -70,7 +70,11 @@ contains
  USE time_utils_module,only:elapsedSec                       ! calculate the elapsed time
  ! subroutines and functions: read dimensions (NOTE: NetCDF)
  USE read_attrb_module,only:read_dimension                   ! module to read dimensions of GRU and HRU
+#if ( defined LIS_SUMMA_2_0 )
+ USE read_icond_module,only:read_icond_nlayers,read_icond_nlayers_lis           ! module to read initial condition dimensions
+#else
  USE read_icond_module,only:read_icond_nlayers               ! module to read initial condition dimensions
+#endif
  ! subroutines and functions: allocate space
  USE allocspace_module,only:allocGlobal                      ! module to allocate space for global data structures
  USE allocspace_module,only:allocLocal                       ! module to allocate space for local data structures
@@ -215,11 +219,28 @@ contains
  ! *** read the number of snow and soil layers
  ! *****************************************************************************
  ! obtain the number of snow and soil layers from the initial conditions file
-!  Modified by Zhuo Wang for restart run mode
- !restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
- restartFile = trim(summa1_struc%rfile)
- call read_icond_nlayers(trim(restartFile),nGRU,indx_meta,err,cmessage)
- if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+
+! Modified by Zhuo Wang to seperate coldstart and restart run mode
+! coldstart mode reads NCAR initial state conditions
+! restart mode reads LIS/SUMMA initial state conditions
+#if ( defined LIS_SUMMA_2_0 )
+    restartFile = trim(summa1_struc%rfile)
+#else
+   restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
+#endif
+if (trim(LIS_rc%startcode) == "coldstart") then
+    call read_icond_nlayers(trim(restartFile),             &
+                            nGRU,                          &
+                            indx_meta,                     &
+                            err,cmessage)
+    if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+elseif (trim(LIS_rc%startcode) == "restart") then
+    call read_icond_nlayers_lis(trim(restartFile),       &
+                                nGRU,                      &
+                                typeStruct,                &
+                                err,cmessage)
+    if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+endif
 
  ! *****************************************************************************
  ! *** allocate space for data structures

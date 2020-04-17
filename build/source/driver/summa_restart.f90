@@ -48,7 +48,11 @@ contains
  USE summa_type, only:summa1_type_dec                        ! master summa data type
  ! functions and subroutines
  USE time_utils_module,only:elapsedSec                       ! calculate the elapsed time
- USE read_icond_module,only:read_icond                       ! module to read initial conditions
+#if ( defined LIS_SUMMA_2_0 )
+ USE read_icond_module,only:read_icond,read_icond_lis        ! module to read initial conditions
+#else
+ USE read_icond_module,only:read_icond_lis                   ! module to read initial conditions
+#endif
  USE check_icond_module,only:check_icond                     ! module to check initial conditions
  USE var_derive_module,only:calcHeight                       ! module to calculate height at layer interfaces and layer mid-point
  USE var_derive_module,only:v_shortcut                       ! module to calculate "short-cut" variables
@@ -67,6 +71,9 @@ contains
  USE mDecisions_module,only:&                                ! look-up values for the choice of method for the spatial representation of groundwater
   localColumn, & ! separate groundwater representation in each local soil column
   singleBasin    ! single groundwater store over the entire basin
+
+ USE LIS_coreMod,only:LIS_rc
+
  ! ---------------------------------------------------------------------------------------
  ! * variables
  ! ---------------------------------------------------------------------------------------
@@ -90,6 +97,8 @@ contains
   diagStruct           => summa1_struc%diagStruct          , & ! x%gru(:)%hru(:)%var(:)%dat -- model diagnostic variables
   fluxStruct           => summa1_struc%fluxStruct          , & ! x%gru(:)%hru(:)%var(:)%dat -- model fluxes
 
+  typeStruct           => summa1_struc%typeStruct          , &
+
   ! basin-average structures
   bparStruct           => summa1_struc%bparStruct          , & ! x%gru(:)%var(:)            -- basin-average parameters
   bvarStruct           => summa1_struc%bvarStruct          , & ! x%gru(:)%var(:)%dat        -- basin-average variables
@@ -112,9 +121,17 @@ contains
  ! *****************************************************************************
 
  ! define restart file
+#if ( defined LIS_SUMMA_2_0 )
+ ! Read the restart filename from lis.config "SUMMA.2.0 restart file:"
+ restartFile = trim(summa1_struc%rfile)
+#else
  restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
+#endif
 
+ ! coldstart mode reads NCAR initial state conditions
+ ! restart mode reads LIS/SUMMA initial state conditions
  ! read initial conditions
+ if (trim(LIS_rc%startcode) == "coldstart") then
  call read_icond(restartFile,                   & ! intent(in):    name of initial conditions file
                  nGRU,                          & ! intent(in):    number of response units
                  mparStruct,                    & ! intent(in):    model parameters
@@ -130,6 +147,16 @@ contains
                   indxStruct,                   & ! intent(in):    layer indexes
                   err,cmessage)                   ! intent(out):   error control
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+ elseif (trim(LIS_rc%startcode) == "restart") then
+   call read_icond_lis(restartFile,             & ! intent(in):    name of initial conditions file
+                   nGRU,                          & ! intent(in):    number of response units
+                   typeStruct,                    & ! intent(in): 
+                   mparStruct,                    & ! intent(in):    model parameters
+                   progStruct,                    & ! intent(inout): model prognostic variables
+                   indxStruct,                    & ! intent(inout): model indices
+                   err,cmessage)                    ! intent(out):   error control
+    if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
+ endif
 
  ! loop through GRUs
  do iGRU=1,nGRU
