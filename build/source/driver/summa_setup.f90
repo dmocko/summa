@@ -29,6 +29,7 @@ USE globalData,only:realMissing      ! missing double precision number
 USE var_lookup,only:iLookATTR                               ! look-up values for local attributes
 USE var_lookup,only:iLookTYPE                               ! look-up values for classification of veg, soils etc.
 USE var_lookup,only:iLookPARAM                              ! look-up values for local column model parameters
+USE var_lookup,only:iLookID                              ! look-up values for local column model parameters
 USE var_lookup,only:iLookBVAR                               ! look-up values for basin-average model variables
 USE var_lookup,only:iLookDECISIONS                          ! look-up values for model decisions
 USE globalData,only:urbanVegCategory                        ! vegetation category for urban areas
@@ -82,6 +83,7 @@ contains
  USE globalData,only:localParFallback                        ! local column default parameters
  USE globalData,only:basinParFallback                        ! basin-average default parameters
  USE globalData,only:model_decisions                         ! model decision structure
+ USE globalData,only:greenVegFrac_monthly                    ! fraction of green vegetation in each month (0-1)
  ! run time options
  USE globalData,only:startGRU                                ! index of the starting GRU for parallelization run
  USE globalData,only:checkHRU                                ! index of the HRU for a single HRU run
@@ -123,6 +125,7 @@ contains
   ! primary data structures (scalars)
   attrStruct           => summa1_struc%attrStruct          , & ! x%gru(:)%hru(:)%var(:)     -- local attributes for each HRU
   typeStruct           => summa1_struc%typeStruct          , & ! x%gru(:)%hru(:)%var(:)     -- local classification of soil veg etc. for each HRU
+  idStruct             => summa1_struc%idStruct            , & ! x%gru(:)%hru(:)%var(:)     -- local classification of soil veg etc. for each HRU
 
   ! primary data structures (variable length vectors)
   mparStruct           => summa1_struc%mparStruct          , & ! x%gru(:)%hru(:)%var(:)%dat -- model parameters
@@ -135,8 +138,7 @@ contains
   ! miscellaneous variables
   upArea               => summa1_struc%upArea              , & ! area upslope of each HRU
   nGRU                 => summa1_struc%nGRU                , & ! number of grouped response units
-  nHRU                 => summa1_struc%nHRU                , & ! number of global hydrologic response units
-  greenVegFrac_monthly => summa1_struc%greenVegFrac_monthly  & ! fraction of green vegetation in each month (0-1)
+  nHRU                 => summa1_struc%nHRU                  & ! number of global hydrologic response units
 
  ) ! assignment to variables in the data structures
  ! ---------------------------------------------------------------------------------------
@@ -182,7 +184,7 @@ contains
 
  ! read local attributes for each HRU
 #if ! (defined LIS_SUMMA_2_0 )
- call read_attrb(trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
+ call read_attrb(trim(attrFile),nGRU,attrStruct,typeStruct,idStruct,err,cmessage)
 #else
  !kluge: n hard-coded to 1
  call read_attrb_lis(1,trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
@@ -263,7 +265,7 @@ contains
  ! *****************************************************************************
 
 #if ! (defined LIS_SUMMA_2_0 )
-  call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
+ call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,idStruct,mparStruct,bparStruct,err,cmessage)
 #else
   call read_param_lis(1,iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
 #endif
@@ -289,7 +291,7 @@ contains
    kHRU=0
    ! check the network topology (only expect there to be one downslope HRU)
    do jHRU=1,gru_struc(iGRU)%hruCount
-    if(typeStruct%gru(iGRU)%hru(iHRU)%var(iLookTYPE%downHRUindex) == typeStruct%gru(iGRU)%hru(jHRU)%var(iLookTYPE%hruId))then
+    if(typeStruct%gru(iGRU)%hru(iHRU)%var(iLookTYPE%downHRUindex) == idStruct%gru(iGRU)%hru(jHRU)%var(iLookID%hruId))then
      if(kHRU==0)then  ! check there is a unique match
       kHRU=jHRU
      else
@@ -323,7 +325,7 @@ contains
    upArea%gru(iGRU)%hru(iHRU) = 0._dp
    do jHRU=1,gru_struc(iGRU)%hruCount
     ! check if jHRU flows into iHRU; assume no exchange between GRUs
-    if(typeStruct%gru(iGRU)%hru(jHRU)%var(iLookTYPE%downHRUindex)==typeStruct%gru(iGRU)%hru(iHRU)%var(iLookTYPE%hruId))then
+    if(typeStruct%gru(iGRU)%hru(jHRU)%var(iLookTYPE%downHRUindex)==typeStruct%gru(iGRU)%hru(iHRU)%var(iLookID%hruId))then
      upArea%gru(iGRU)%hru(iHRU) = upArea%gru(iGRU)%hru(iHRU) + attrStruct%gru(iGRU)%hru(jHRU)%var(iLookATTR%HRUarea)
     endif   ! (if jHRU is an upstream HRU)
    end do  ! jHRU

@@ -18,12 +18,11 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-module summa_defineOutput
-! used to define model output files
+module summa_defineOutput                     ! used to define model output files
 
 ! access missing values
-USE globalData,only:integerMissing   ! missing integer
-USE globalData,only:realMissing      ! missing double precision number
+USE globalData,only:integerMissing            ! missing integer
+USE globalData,only:realMissing               ! missing double precision number
 
 ! named variables to define new output files
 USE globalData, only: noNewFiles              ! no new output files
@@ -32,6 +31,7 @@ USE globalData, only: newFileEveryOct1        ! create a new file on Oct 1 every
 ! metadata structures
 USE globalData,only:attr_meta                 ! attributes metadata structure
 USE globalData,only:type_meta                 ! veg/soil type metadata structure
+USE globalData,only:id_meta                   ! hru and gru Id metadata structure
 USE globalData,only:mpar_meta                 ! local parameter metadata structure
 USE globalData,only:bpar_meta                 ! basin parameter metadata structure
 
@@ -86,6 +86,7 @@ contains
   timeStruct           => summa1_struc%timeStruct        , & ! x%var(:)                   -- model time data
   attrStruct           => summa1_struc%attrStruct        , & ! x%gru(:)%hru(:)%var(:)     -- local attributes for each HRU
   typeStruct           => summa1_struc%typeStruct        , & ! x%gru(:)%hru(:)%var(:)     -- local classification of soil veg etc. for each HRU
+  idStruct             => summa1_struc%idStruct          , & ! x%gru(:)%hru(:)%var(:)     -- local classification of soil veg etc. for each HRU
   mparStruct           => summa1_struc%mparStruct        , & ! x%gru(:)%hru(:)%var(:)%dat -- model parameters
   bparStruct           => summa1_struc%bparStruct        , & ! x%gru(:)%var(:)            -- basin-average parameters
   nGRU                 => summa1_struc%nGRU              , & ! number of grouped response units
@@ -99,13 +100,15 @@ contains
  ! *** define the name of the model output file
  ! *****************************************************************************
 
- ! define name of output file : spinup
+ ! define full name of output file 
  if(modelTimeStep==1)then
   select case(newOutputFile)
-   case(noNewFiles);       fileout = trim(OUTPUT_PATH)//trim(OUTPUT_PREFIX)//'output'//trim(output_fileSuffix)
-   case(newFileEveryOct1); fileout = trim(OUTPUT_PATH)//trim(OUTPUT_PREFIX)//'spinup'//trim(output_fileSuffix)
+   case(noNewFiles);          ! do nothing, just ensure validity of outputfile option
+   case(newFileEveryOct1);    
    case default; err=20; message=trim(message)//'unable to identify the option to define new output files'; return
   end select
+
+  fileout = trim(OUTPUT_PATH)//trim(OUTPUT_PREFIX)//trim(output_fileSuffix)
 
  ! model time step > 1: define name of output file : new simulations
  else
@@ -148,5 +151,3 @@ contains
 
  end subroutine summa_defineOutputFiles
 end module summa_defineOutput
-
-
