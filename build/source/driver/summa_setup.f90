@@ -155,7 +155,11 @@ contains
  call ffile_info(nGRU,err,cmessage)
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 #else
- data_step = 3600.
+! Hourly forcing time step
+!data_step = 3600.
+
+! 3-hourly forcing time step
+ data_step = 3600.*3.
 #endif
 
  ! *****************************************************************************
