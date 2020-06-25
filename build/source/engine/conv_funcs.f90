@@ -317,7 +317,8 @@ REAL(DP)                     :: df_dT          ! derivative (-)
 REAL(DP)                     :: TWinc          ! wet bulb temperature increment (C)
 INTEGER(I4B)                 :: iter           ! iterattion index
 REAL(DP),PARAMETER           :: Xoff=1.E-5_DP  ! finite difference increment (C)
-REAL(DP),PARAMETER           :: Xtol=1.E-8_DP  ! convergence tolerance (C)
+!REAL(DP),PARAMETER           :: Xtol=1.E-8_DP  ! convergence tolerance (C)
+REAL(DP),PARAMETER           :: Xtol=1.E-3_DP  ! convergence tolerance (C)
 INTEGER(I4B)                 :: maxiter=15     ! maximum number of iterations
 ! convert temperature to Celcius
 Tcel = TAIR-TFREEZE
