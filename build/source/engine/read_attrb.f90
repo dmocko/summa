@@ -407,16 +407,20 @@ end subroutine read_dimension
  ! public subroutine read_attrb_lis: read information on local attributes
  ! ************************************************************************************************
 #if ( defined LIS_SUMMA_2_0 )
- subroutine read_attrb_lis(n, attrFile,nGRU,attrStruct,typeStruct,err,message)
+ subroutine read_attrb_lis(n, attrFile,nGRU,attrStruct,typeStruct,idStruct,err,message)
  ! provide access to subroutines
  USE LIS_coreMod
  USE LIS_fileIOMod
+
+ USE var_lookup,only:iLookID                                ! look-up values for local column model parameters
+
  USE netcdf
  USE netcdf_util_module,only:nc_file_open                   ! open netcdf file
  USE netcdf_util_module,only:nc_file_close                  ! close netcdf file
  USE netcdf_util_module,only:netcdf_err                     ! netcdf error handling function
  ! provide access to derived data types
  USE data_types,only:gru_hru_int                            ! x%gru(:)%hru(:)%var(:)     (i4b)
+ USE data_types,only:gru_hru_int8                           ! x%gru(:)%hru(:)%var(:)     integer(8)
  USE data_types,only:gru_hru_double                         ! x%gru(:)%hru(:)%var(:)     (dp)
  ! provide access to global data
  USE globalData,only:gru_struc                              ! gru-hru mapping structure
@@ -430,6 +434,8 @@ end subroutine read_dimension
  integer(i4b),intent(in)              :: nGRU               ! number of grouped response units
  type(gru_hru_double),intent(inout)   :: attrStruct         ! local attributes for each HRU
  type(gru_hru_int),intent(inout)      :: typeStruct         ! local classification of soil veg etc. for each HRU
+ type(gru_hru_int8),intent(inout)     :: idStruct 
+
  integer(i4b),intent(out)             :: err                ! error code
  character(*),intent(out)             :: message            ! error message
 
@@ -460,7 +466,7 @@ end subroutine read_dimension
  real(dp)                             :: var1d(LIS_rc%ntiles(n))
  real                                 :: var2d_tmp(LIS_rc%lnc(n),LIS_rc%lnr(n))
  integer(i4b)                         :: varID              ! NetCDF variable ID
- integer(i4b),allocatable             :: hru_id(:)
+ integer(8),allocatable               :: hru_id(:)
 
  ! Start procedure here
  err=0; message="read_attrb_lis/"
@@ -483,7 +489,7 @@ end subroutine read_dimension
 ! get data from netcdf file and store in vector
  do iGRU=1,nGRU
    do iHRU = 1,gru_struc(iGRU)%hruCount
-       typeStruct%gru(iGRU)%hru(iHRU)%var(varIndx) = &
+       idStruct%gru(iGRU)%hru(iHRU)%var(iLookID%hruId) = &
             var1d(iGRU)
    end do
  end do

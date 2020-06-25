@@ -57,7 +57,7 @@ contains
  USE summaFileManager,only:PARAMETER_TRIAL           ! file with parameter trial values
  USE get_ixname_module,only:get_ixparam,get_ixbpar   ! access function to find index of elements in structure
  USE globalData,only:index_map,gru_struc             ! mapping from global HRUs to the elements in the data structures
- USE var_lookup,only:iLookPARAM,iLookTYPE,iLookID    ! named variables to index elements of the data vectors
+ USE var_lookup,only:iLookPARAM,iLookID    ! named variables to index elements of the data vectors
  implicit none
  ! define input
  integer(i4b),        intent(in)       :: iRunMode         ! run mode
@@ -365,7 +365,7 @@ contains
  ! public subroutine read_param_lis: read trial model parameter values
  ! ************************************************************************************************
 #if ( defined LIS_SUMMA_2_0 )
- subroutine read_param_lis(n,iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,message)
+ subroutine read_param_lis(n,iRunMode,checkHRU,startGRU,nHRU,nGRU,idStruct,mparStruct,bparStruct,err,message)
  ! provide access to subroutines
 
  ! missing values
@@ -385,16 +385,16 @@ contains
 
  ! provide access to derived data types
  USE data_types,only:gru_double                ! x%gru(:)%var(:)
- USE data_types,only:gru_hru_int               ! x%gru(:)%hru(:)%var(:)     (i4b)
  USE data_types,only:gru_hru_double            ! x%gru(:)%hru(:)%var(:)     (dp)
  USE data_types,only:gru_hru_doubleVec         ! x%gru(:)%hru(:)%var(:)%dat(:)
+ USE data_types,only:gru_hru_int8
 
  ! used to read model initial conditions 
  USE summaFileManager,only:SETNGS_PATH               ! path for metadata files
  USE summaFileManager,only:PARAMETER_TRIAL           ! file with parameter trial values
  USE get_ixname_module,only:get_ixparam,get_ixbpar,get_ixType   ! access function to find index of elements in structure
  USE globalData,only:index_map,gru_struc             ! mapping from global HRUs to the elements in the data structures
- USE var_lookup,only:iLookPARAM,iLookTYPE            ! named variables to index elements of the data vectors
+ USE var_lookup,only:iLookPARAM,iLookID    ! named variables to index elements of the data vectors
  implicit none
 
  ! define input
@@ -404,7 +404,7 @@ contains
  integer(i4b),        intent(in)       :: startGRU         ! index of single GRU if runMode = startGRU
  integer(i4b),        intent(in)       :: nHRU             ! number of global HRUs
  integer(i4b),        intent(in)       :: nGRU             ! number of global GRUs
- type(gru_hru_int),   intent(in)       :: typeStruct       ! local classification of soil veg etc. for each HRU
+ type(gru_hru_int8),  intent(in)       :: idStruct       ! local classification of soil veg etc. for each HRU
 
  ! define output
  type(gru_hru_doubleVec),intent(inout) :: mparStruct       ! model parameters
@@ -416,7 +416,7 @@ contains
  character(len=1024)                   :: cmessage         ! error message for downwind routine
  character(LEN=1024)                   :: infile           ! input filename
  integer(i4b)                          :: iHRU             ! index of HRU within data vector
- integer(i4b)                          :: localHRU,iGRU    ! index of HRU and GRU within data structure
+ integer(i4b)                          :: localHRU_ix,iGRU    ! index of HRU and GRU within data structure
  integer(i4b)                          :: ixParam          ! index of the model parameter in the data structure
 
  integer(i4b)                          :: varIndx          ! index of variable within its data structure
@@ -437,7 +437,7 @@ contains
 
  ! data in the netcdf file
  integer(i4b)                          :: parLength        ! length of the parameter data
- integer(i4b),allocatable              :: hruId(:)         ! HRU identifier in the file
+ integer(8),allocatable                :: hruId(:)         ! HRU identifier in the file
  real(dp),allocatable                  :: parVector(:)     ! model parameter vector
  logical                               :: fexist           ! inquire whether the parmTrial file exists
  integer(i4b)                          :: fHRU             ! index of HRU in input file
@@ -447,7 +447,6 @@ contains
  real(dp)                              :: var1d(LIS_rc%ntiles(n))
  real                                  :: var2d_tmp(LIS_rc%lnc(n),LIS_rc%lnr(n))
  integer(i4b)                          :: varID            ! NetCDF variable ID
- integer(i4b),allocatable              :: hru_id(:)
 
  ! Start procedure here
  err=0; message="read_param_lis/"
@@ -559,9 +558,9 @@ contains
     do iHRU=1,nHRU
      ! map to the GRUs and HRUs
      iGRU=index_map(iHRU)%gru_ix
-     localHRU=index_map(iHRU)%localHRU_ix
-     fHRU = gru_struc(iGRU)%hruInfo(localHRU)%hru_nc
-     mparStruct%gru(iGRU)%hru(localHRU)%var(varIndx)%dat(:) = var1d(fHRU)
+     localHRU_ix=index_map(iHRU)%localHRU_ix
+     fHRU = gru_struc(iGRU)%hruInfo(localHRU_ix)%hru_nc
+     mparStruct%gru(iGRU)%hru(localHRU_ix)%var(varIndx)%dat(:) = var1d(fHRU)
     end do  ! looping through HRUs
 
     ! deallocate space for model parameters
@@ -606,10 +605,10 @@ contains
          bparStruct%gru(iGRU)%var(varIndx) = var1d(iGRU)
       end do  ! looping through GRUs
 
-    else if (iRunMode==iRunModeHRU) then
-         err = 20; message='checkHRU run mode not working'; return;
-    endif
-   
+   else if (iRunMode==iRunModeHRU) then
+       err = 20; message='checkHRU run mode not working'; return;
+   endif
+
  endif    ! reading the basin parameters
 end do  ! looping through variables in the file
 

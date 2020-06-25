@@ -31,6 +31,7 @@ USE var_lookup,only:iLookDIAG                               ! look-up values for
 USE var_lookup,only:iLookFLUX                               ! look-up values for local column model fluxes
 USE var_lookup,only:iLookBVAR                               ! look-up values for basin-average model variables
 USE var_lookup,only:iLookDECISIONS                          ! look-up values for model decisions
+USE var_lookup,only:iLookID
 
 ! safety: set private unless specified otherwise
 implicit none
@@ -97,7 +98,7 @@ contains
   diagStruct           => summa1_struc%diagStruct          , & ! x%gru(:)%hru(:)%var(:)%dat -- model diagnostic variables
   fluxStruct           => summa1_struc%fluxStruct          , & ! x%gru(:)%hru(:)%var(:)%dat -- model fluxes
 
-  typeStruct           => summa1_struc%typeStruct          , &
+  idStruct             => summa1_struc%idStruct            , &
 
   ! basin-average structures
   bparStruct           => summa1_struc%bparStruct          , & ! x%gru(:)%var(:)            -- basin-average parameters
@@ -149,8 +150,8 @@ contains
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
  elseif (trim(LIS_rc%startcode) == "restart") then
    call read_icond_lis(restartFile,             & ! intent(in):    name of initial conditions file
-                   nGRU,                          & ! intent(in):    number of response units
-                   typeStruct,                    & ! intent(in): 
+                   nGRU,                          & ! intent(in):  number of response units
+                   idStruct,                      & ! intent(in):
                    mparStruct,                    & ! intent(in):    model parameters
                    progStruct,                    & ! intent(inout): model prognostic variables
                    indxStruct,                    & ! intent(inout): model indices

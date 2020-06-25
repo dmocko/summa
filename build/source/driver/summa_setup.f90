@@ -187,7 +187,7 @@ contains
  call read_attrb(trim(attrFile),nGRU,attrStruct,typeStruct,idStruct,err,cmessage)
 #else
  !kluge: n hard-coded to 1
- call read_attrb_lis(1,trim(attrFile),nGRU,attrStruct,typeStruct,err,cmessage)
+ call read_attrb_lis(1,trim(attrFile),nGRU,attrStruct,typeStruct,idStruct,err,cmessage)
 #endif
  if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 
@@ -267,7 +267,7 @@ contains
 #if ! (defined LIS_SUMMA_2_0 )
  call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,idStruct,mparStruct,bparStruct,err,cmessage)
 #else
-  call read_param_lis(1,iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
+ call read_param_lis(1,iRunMode,checkHRU,startGRU,nHRU,nGRU,idStruct,mparStruct,bparStruct,err,cmessage)
 #endif
 
 !call read_param(iRunMode,checkHRU,startGRU,nHRU,nGRU,typeStruct,mparStruct,bparStruct,err,cmessage)
@@ -325,7 +325,7 @@ contains
    upArea%gru(iGRU)%hru(iHRU) = 0._dp
    do jHRU=1,gru_struc(iGRU)%hruCount
     ! check if jHRU flows into iHRU; assume no exchange between GRUs
-    if(typeStruct%gru(iGRU)%hru(jHRU)%var(iLookTYPE%downHRUindex)==typeStruct%gru(iGRU)%hru(iHRU)%var(iLookID%hruId))then
+    if(typeStruct%gru(iGRU)%hru(jHRU)%var(iLookTYPE%downHRUindex)==idStruct%gru(iGRU)%hru(iHRU)%var(iLookID%hruId))then
      upArea%gru(iGRU)%hru(iHRU) = upArea%gru(iGRU)%hru(iHRU) + attrStruct%gru(iGRU)%hru(jHRU)%var(iLookATTR%HRUarea)
     endif   ! (if jHRU is an upstream HRU)
    end do  ! jHRU

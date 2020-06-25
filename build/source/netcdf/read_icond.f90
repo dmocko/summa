@@ -44,6 +44,8 @@ contains
  ! modules
  USE nrtype
  USE var_lookup,only:iLookIndex                        ! variable lookup structure
+
+ USE var_lookup,only:iLookID
  USE globalData,only:gru_struc                         ! gru-hru mapping structures
  USE netcdf_util_module,only:nc_file_close             ! close netcdf file
  USE netcdf_util_module,only:nc_file_open              ! close netcdf file
@@ -373,14 +375,13 @@ contains
  ! ************************************************************************************************
  ! public subroutine read_icond_nlayers_lis: read model initial conditions file for number of snow/soil layers
  ! ************************************************************************************************
-  subroutine read_icond_nlayers_lis(iconFile,nGRU,typeData,err,message)
+  subroutine read_icond_nlayers_lis(iconFile,nGRU,err,message)
  ! --------------------------------------------------------------------------------------------------------
  ! modules
  USE nrtype
  USE globalData,only:gru_struc 
 
  USE var_lookup,only:iLookINDEX                        ! variable lookup structure
- USE var_lookup,only:iLookTYPE
 
  USE netcdf_util_module,only:nc_file_close             ! close netcdf file
  USE netcdf_util_module,only:nc_file_open              ! close netcdf file
@@ -388,7 +389,6 @@ contains
 
  USE data_types,only:gru_hru_intVec                    ! actual data
  USE data_types,only:var_info
- USE data_types,only:gru_hru_int
 
  use LIS_coreMod,    only : LIS_rc, LIS_masterproc
  use LIS_historyMod, only : LIS_readvar_restart
@@ -409,7 +409,6 @@ contains
 
  character(*)        ,intent(in)     :: iconFile       ! name of input (restart) file
  integer(i4b)        ,intent(in)     :: nGRU           ! total # of GRUs in run domain
- type(gru_hru_int)   ,intent(in)     :: typeData
  integer(i4b)        ,intent(out)    :: err            ! error code
  character(*)        ,intent(out)    :: message        ! returned error message
   
@@ -427,7 +426,7 @@ contains
 
  integer(i4b),allocatable :: nSnowData(:)                ! number of snow layers in all HRUs
  integer(i4b),allocatable :: nSoilData(:)                ! number of soil layers in all HRUs
- integer(i4b),allocatable :: hruIdData(:)
+ integer(8),allocatable :: hruIdData(:)
 
  character(len=256)       :: cmessage                   ! downstream error message
 
@@ -439,7 +438,7 @@ contains
 
 !real(dp) :: nSnow 
 !real(dp) :: nSoil
- integer(i4b) :: hruId
+ integer(8) :: hruId
  integer(i4b)        :: nGRU_lis
  integer(i4b)        :: nHRUrun
  
@@ -539,7 +538,7 @@ contains
 ! ************************************************************************************************
  subroutine read_icond_lis(iconFile,                    & ! intent(in):    name of initial conditions file
                            nGRU,                          & ! intent(in):    number of GRUs
-                           typeData,                      &
+                           idData,                        &
                            mparData,                      & ! intent(in):    model parameters
                            progData,                      & ! intent(inout): model prognostic variables
                            indxData,                      & ! intent(inout): model indices
@@ -564,7 +563,7 @@ contains
  USE data_types,only:gru_hru_intVec                     ! full integer structure
  USE data_types,only:var_dlength                        ! double precision structure for a single HRU
  USE data_types,only:var_info                           ! metadata
- USE data_types,only:gru_hru_int
+ USE data_types,only:gru_hru_int8
 
  USE get_ixName_module,only:get_varTypeName             ! to access type strings for error messages
  USE updatState_module,only:updateSoil                  ! update soil states
@@ -582,7 +581,7 @@ contains
  ! dummies
  character(*)           ,intent(in)     :: iconFile     ! name of netcdf file containing the initial conditions
  integer(i4b)           ,intent(in)     :: nGRU         ! number of grouped response units in simulation domain
- type(gru_hru_int)      ,intent(inout)     :: typeData
+ type(gru_hru_int8)      ,intent(inout)     :: idData
  type(gru_hru_doubleVec),intent(in)     :: mparData     ! model parameters
  type(gru_hru_doubleVec),intent(inout)  :: progData     ! model prognostic variables
  type(gru_hru_intVec)   ,intent(inout)  :: indxData     ! model indices
@@ -623,7 +622,7 @@ contains
 
  integer(i4b),allocatable :: nSnowData(:)
  integer(i4b),allocatable :: nSoilData(:)
- integer(i4b),allocatable :: hruIdData(:)
+ integer(8),allocatable :: hruIdData(:)
 
  integer                  :: midToto_new, ifcToto_new, soilLay_new
 
@@ -637,9 +636,9 @@ contains
 ! Start procedure here
  err=0; message="read_icond_lis/"
 
+ soilLay_new = 3
  midToto_new = 8     ! midToto_new = 13
  ifcToto_new = 9     ! ifcToto_new = 14
- soilLay_new = 3
 ! --------------------------------------------------------------------------------------------------------
 ! (1) read the file
 ! --------------------------------------------------------------------------------------------------------
@@ -668,7 +667,7 @@ contains
   tmpint_1d=0
   call LIS_readvar_restart(ftn, n, LIS_rc%lsm_index, tmpint_1d, &
                            varname="hruId", wformat=wformat)
-  typeData%gru(:)%hru(1)%var(iLookID%hruId) = tmpint_1d
+  idData%gru(:)%hru(1)%var(iLookID%hruId) = tmpint_1d
   hruIdData = tmpint_1d
 
   tmptilen_1d=0

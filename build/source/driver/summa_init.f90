@@ -225,7 +225,7 @@ contains
 ! coldstart mode reads NCAR initial state conditions
 ! restart mode reads LIS/SUMMA initial state conditions
 #if ( defined LIS_SUMMA_2_0 )
-    restartFile = trim(summa1_struc%rfile)
+   restartFile = trim(summa1_struc%rfile)
 #else
    restartFile = trim(SETNGS_PATH)//trim(MODEL_INITCOND)
 #endif
@@ -238,7 +238,6 @@ if (trim(LIS_rc%startcode) == "coldstart") then
 elseif (trim(LIS_rc%startcode) == "restart") then
     call read_icond_nlayers_lis(trim(restartFile),       &
                                 nGRU,                      &
-                                typeStruct,                &
                                 err,cmessage)
     if(err/=0)then; message=trim(message)//trim(cmessage); return; endif
 endif
