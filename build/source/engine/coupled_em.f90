@@ -1159,7 +1159,7 @@ contains
 
  ! check the soil water balance
  scalarSoilWatBalError  = balanceSoilWater1 - (balanceSoilWater0 + (balanceSoilInflux + balanceSoilET - balanceSoilBaseflow - balanceSoilDrainage - totalSoilCompress) )
- if(abs(scalarSoilWatBalError) > absConvTol_liquid*iden_water*10._dp)then  ! NOTE: kg m-2, so need coarse tolerance to account for precision issues
+ if(abs(scalarSoilWatBalError) > absConvTol_liquid*iden_water*40._dp)then  ! NOTE: kg m-2, so need coarse tolerance to account for precision issues
   write(*,*)               'solution method           = ', ixSolution
   write(*,'(a,1x,f20.10)') 'data_step                 = ', data_step
   write(*,'(a,1x,f20.10)') 'totalSoilCompress         = ', totalSoilCompress
